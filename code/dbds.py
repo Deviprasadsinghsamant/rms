@@ -35,11 +35,10 @@ from xgboost import XGBClassifier
 
 DATE_FMT = "%Y-%m-%d"
 
-
 def parse_dates(df_res):
     """
     Adds datetime & length-of-stay (LOS) columns to the DataFrame.
-    Also replaces 'NULL' values with np.NaN
+    Also replaces 'NULL' values with np.nan
     _____________
     Takes:
         - df_res (required, DataFrame): raw hotel reservation data.
@@ -47,10 +46,10 @@ def parse_dates(df_res):
     Returns: df_res (DataFrame)
         - New column: 'ArrivalDate'
         - New column: 'LOS'
-        - New column: 'CheckoutDate'
+        - New column: 'checkout_date'
         - Changed column: 'StatusDate'
     """
-    df_res = df_res.replace("       NULL", np.NaN)
+    df_res = df_res.replace("NULL", np.nan)
 
     df_res["ArrivalDate"] = pd.to_datetime(
         df_res.ArrivalDateYear.astype(str)
@@ -66,9 +65,11 @@ def parse_dates(df_res):
 
     # add checkout date
     checkout_lam = lambda row: row["ArrivalDate"] + pd.DateOffset(row["LOS"])
-    df_res["CheckoutDate"] = df_res.apply(checkout_lam, axis=1)
+    df_res["checkout_date"] = df_res.apply(checkout_lam, axis=1)
 
     return df_res
+
+
 
 
 def add_res_columns(df_res):
@@ -163,7 +164,7 @@ def add_res_columns(df_res):
 def res_to_dbd(df_res, first_date="2015-07-01"):
     """
     Takes a dataFrame (with parsed dates and LOS column) containing a hotel's reservations and
-    returns a DataFrame containing nightly hotel room sales.
+    returns a DataFrame containing nightly hotel sales.
 
     Our data is made up of reservations containing 'Arrival Date' and 'Length of Stay'.
     This function is used to determine how many rooms were sold on a given night, accounting for
@@ -176,7 +177,8 @@ def res_to_dbd(df_res, first_date="2015-07-01"):
     """
     df_dates = df_res.copy()
     date = pd.to_datetime(first_date, format=DATE_FMT)
-    end_date = datetime.date(2017, 8, 31)
+    # Convert end_date to pandas Timestamp for proper comparison
+    end_date = pd.to_datetime("2017-08-31")
     delta = datetime.timedelta(days=1)
     max_los = int(df_dates["LOS"].max())
 
@@ -189,13 +191,13 @@ def res_to_dbd(df_res, first_date="2015-07-01"):
 
         # initialize date dict, which will go into nightly_stats as {'date': {'stat': 'val', 'stat', 'val'}}
         day_stats = defaultdict(int)
-        mask = (df_dates.ArrivalDate <= date) & (df_dates.CheckoutDate > date)
+        mask = (df_dates.ArrivalDate <= date) & (df_dates.checkout_date > date)
 
         day_stats["NumCancels"] += df_dates[mask].IsCanceled.sum()
 
         mask = (
             (df_dates.ArrivalDate <= date)
-            & (df_dates.CheckoutDate > date)
+            & (df_dates.checkout_date > date)
             & (df_dates.IsCanceled == 0)
         )
 
@@ -228,7 +230,6 @@ def res_to_dbd(df_res, first_date="2015-07-01"):
         nightly_stats[date_string] = dict(day_stats)
         date += delta
     return pd.DataFrame(nightly_stats).transpose()
-
 
 def add_dbd_columns(df_dbd, capacity):
     """
@@ -320,7 +321,7 @@ def add_other_market_seg(df_dbd):
     return df_dbd.copy()
 
 
-def generate_hotel_dfs(res_filepath, capacity=None):
+def generate_hotel_dfs(res_filepath="../data/H1.csv", capacity=None):
     """
     Takes in a hotel's raw reservations data (CSV) and capacity & returns two
     formatted DataFrames using the above functions:
@@ -345,4 +346,7 @@ def generate_hotel_dfs(res_filepath, capacity=None):
 
     df_dbd = add_dbd_columns(df_dbd, capacity=capacity)
     df_dbd = add_other_market_seg(df_dbd)
+    print("Hotel dataframes generated successfully!")
+    print(f"Hotel capacity: {capacity} rooms")
+    print(f"Hotel data date range: {df_res.ArrivalDate.min().date()} to {df_dbd.index.max().date()}")
     return df_res, df_dbd

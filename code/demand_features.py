@@ -10,7 +10,6 @@ rf_cols = [
     "RemSupply_STLY",
     "Mon",
     "Sat",
-    "Sun",
     "Thu",
     "Tue",
     "Wed",

@@ -44,55 +44,74 @@ import numpy as np
 import datetime
 from sim import generate_simulation
 import time
+import os
 
-FOLDER = "./sims2/"
+FOLDER = "./sims2/"  # Changed from string to path
+# Ensure folder exists
+if not os.path.exists(FOLDER):
+    os.makedirs(FOLDER)
+
 START = datetime.date(2015, 8, 1)
 STOP = datetime.date(2017, 8, 1)
 DATE_FMT = "%Y-%m-%d"
-H1_RES = pd.read_pickle("pickle/h1_res.pick")
-H2_RES = pd.read_pickle("pickle/h2_res.pick")
-H1_DBD = pd.read_pickle("pickle/h1_dbd.pick")
-H2_DBD = pd.read_pickle("pickle/h2_dbd.pick")
+
+H1_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_res.pick")
+H2_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_res.pick")
+H1_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_dbd.pick")
+H2_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_dbd.pick")
 
 
-def save_sim_records(
-    df_dbd, df_res, hotel_num, skip_existing=False, pull_extended=False
-):
+def save_sim_records(df_dbd, df_res, hotel_num, skip_existing=False, pull_extended=False):
+    try:
+        all_dates = [
+            datetime.datetime.strftime(START + datetime.timedelta(days=x), format=DATE_FMT)
+            for x in range((STOP - START).days + 1)
+        ]
 
-    all_dates = [
-        datetime.datetime.strftime(START + datetime.timedelta(days=x), format=DATE_FMT)
-        for x in range((STOP - START).days + 1)
-    ]
-
-    counter = 1
-    for as_of_date in all_dates:
-        out_file = str(FOLDER + f"h{str(hotel_num)}_sim_{as_of_date}.pick")
-        df_sim = generate_simulation(
-            df_dbd,
-            as_of_date,
-            hotel_num,
-            df_res,
-            confusion=False,
-            verbose=0,
-        )
-        df_sim.to_pickle(out_file)
-        counter += 1
-        print(f"Saved file {out_file}.")
-    pass
+        counter = 1
+        for as_of_date in all_dates:
+            out_file = os.path.join(FOLDER, f"h{str(hotel_num)}_sim_{as_of_date}.pick")
+            if skip_existing and os.path.exists(out_file):
+                print(f"Skipping existing file {out_file}")
+                continue
+                
+            df_sim = generate_simulation(
+                df_dbd,
+                as_of_date, 
+                hotel_num,
+                df_res,
+                confusion=False,
+                verbose=0,
+            )
+            df_sim.to_pickle(out_file)
+            counter += 1
+            print(f"Saved file {out_file}.")
+        return True
+    except Exception as e:
+        print(f"Error saving simulation records: {str(e)}")
+        return False
 
 
 def save_historical_OTB(h1_dbd, h1_res, h2_dbd, h2_res):
-    print("Starting hotel 1...")
-    save_sim_records(h1_dbd, h1_res, 1)
-    print(
-        f"Finished retrieving historical OTB records for Hotel 1\n",
-        "Sleeping ten seconds for CPU health...",
-    )
+    try:
+        print("Starting hotel 1...")
+        if not save_sim_records(h1_dbd, h1_res, 1):
+            raise Exception("Failed to save Hotel 1 records")
 
-    print("Starting hotel 2...")
-    save_sim_records(h2_dbd, h2_res, 2)
-    print("All files saved.")
-    return
+        print(
+            f"Finished retrieving historical OTB records for Hotel 1\n",
+            "Sleeping ten seconds for CPU health..."
+        )
+
+        print("Starting hotel 2...")
+        if not save_sim_records(h2_dbd, h2_res, 2):
+            raise Exception("Failed to save Hotel 2 records")
+            
+        print("All files saved.")
+        return True
+    except Exception as e:
+        print(f"Error saving historical OTB data: {str(e)}")
+        return False
 
 
 if __name__ == "__main__":

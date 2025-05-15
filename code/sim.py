@@ -48,10 +48,14 @@ def setup_sim(df_res, hotel_num, as_of_date="2017-08-01"):
     """
 
     date = pd.to_datetime(as_of_date, format=DATE_FMT)
-    if date + pd.DateOffset(31) > datetime.date(2017, 8, 31):
-        end_date = datetime.date(2017, 8, 31)
+    # Convert end date to pandas Timestamp for proper comparison
+    end_date_max = pd.to_datetime("2017-08-31")
+    
+    if date + pd.DateOffset(31) > end_date_max:
+        end_date = end_date_max
     else:
         end_date = date + pd.DateOffset(31)
+    
     delta = datetime.timedelta(days=1)
 
     nightly_stats = {}
@@ -62,7 +66,6 @@ def setup_sim(df_res, hotel_num, as_of_date="2017-08-01"):
     future_res = get_otb_res(future_res, as_of_date).copy()
 
     while date <= end_date:
-
         stay_date_str = datetime.datetime.strftime(date, format=DATE_FMT)
 
         mask = (future_res.ArrivalDate <= stay_date_str) & (
@@ -232,7 +235,6 @@ def add_tminus_cols(df_sim, df_res):
 
     return df_sim.copy().fillna(0)
 
-
 def generate_simulation(
     df_dbd,
     as_of_date,
@@ -258,7 +260,7 @@ def generate_simulation(
         - verbose (int, optional): if zero, print statements will be suppressed.
     """
     aod_dt = pd.to_datetime(as_of_date, format=DATE_FMT)
-    min_dt = datetime.date(2015, 7, 1)
+    min_dt = pd.to_datetime("2015-07-01")  # Convert to pandas Timestamp
     assert hotel_num in [1, 2], ValueError(
         "Invalid hotel_num. Must be (integer) 1 or 2."
     )
@@ -266,10 +268,10 @@ def generate_simulation(
         "as_of_date must be between 7/1/16 and 8/30/17."
     )
 
-    if hotel_num == 1:
-        capacity = H1_CAPACITY
-    else:
-        capacity = H2_CAPACITY
+    # if hotel_num == 1:
+    #     capacity = H1_CAPACITY
+    # else:
+    #     capacity = H2_CAPACITY
     if verbose > 0:
         print("Setting up simulation...")
     df_sim = setup_sim(df_res, hotel_num, as_of_date)

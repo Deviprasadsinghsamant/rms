@@ -3,9 +3,10 @@ data/
 .vscode/
 code/__pycache__/
 code/.ipynb_checkpoints
-code/pickle
+
 code/sims/
 data/otb-data
 ~$slides.pptx
 code/app/__pycache__/
 lasso_elliot_wilens.mp4
+code/__pycache__

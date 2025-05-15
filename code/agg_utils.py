@@ -1,4 +1,5 @@
-stly_cols_agg = [
+
+drop_cols_agg=stly_cols_agg = [
     "id",
     "AsOfDate",
     "StayDate",
