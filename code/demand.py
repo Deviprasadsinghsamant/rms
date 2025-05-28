@@ -12,7 +12,7 @@ import datetime as dt
 from sklearn.ensemble import RandomForestRegressor # type: ignore
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error # type: ignore
 
-from demand_features import rf_cols, rf2_cols
+from demand_features import rf_cols
 
 DATE_FMT = "%Y-%m-%d"
 
@@ -59,25 +59,19 @@ def splits(df_sim, features, train_size=0.7, random_state=42):
 def train_model(
     df_sim, as_of_date, hotel_num, features, X_train, y_train, X_test, y_test
 ):
-
+    print("X_train",X_train)
+    print("X_test",X_test)
     print(X_train.shape, y_train.shape, X_test.shape, y_test.shape)
-    if hotel_num == 1:
-        rfm = RandomForestRegressor( 
-            n_estimators=550,
-            n_jobs=-1,
-            random_state=20,
-        )
-        rfm.fit(X_train, y_train)
-        print("x test",X_test)  
-        preds = rfm.predict(X_test)
-    else:
-        # hotel 2
-        rfm = RandomForestRegressor(
-            n_estimators=350, max_depth=25, n_jobs=-1, random_state=20
-        )
-        rfm.fit(X_train, y_train)
-        preds = rfm.predict(X_test)
 
+    rfm = RandomForestRegressor( 
+        n_estimators=550,
+        n_jobs=-1,
+        random_state=20,
+    )
+    rfm.fit(X_train, y_train)
+    print("x test",X_test)  
+    preds = rfm.predict(X_test)
+    print(preds)
     # add preds back to original
     X_test["Proj_TRN_RemDemand"] = preds.round(0).astype(int)
 
@@ -117,32 +111,21 @@ def calculate_rev_at_price(price, df_demand, model, df_index, features):
     # Update the selling price at the specified index
     df.loc[df_index, "SellingPrice"] = price
     
-    # Check for NaN values in features before extraction
-    feature_data = df.loc[df_index, features]
-    if feature_data.isna().any():
-        print(f"Warning: NaN values detected in features at index {df_index}")
-        print("NaN columns:", feature_data.index[feature_data.isna()].tolist())
-        
-        # Fill NaN values with appropriate defaults (0 or mean)
-        # This is a temporary fix - ideally you should identify why NaNs exist
-        for col in features:
-            if pd.isna(df.loc[df_index, col]):
-                # Use column mean or 0 depending on the context
-                if df[col].dtype in ['float64', 'int64']:
-                    df.loc[df_index, col] = df[col].mean() if not pd.isna(df[col].mean()) else 0
-                else:
-                    df.loc[df_index, col] = 0  # Default for non-numeric
+    # Extract feature values directly as a list and ensure they're all numeric
+    feature_values = []
+    for col in features:
+        val = df.loc[df_index, col]
+        # Convert to float - handles any non-numeric values
+        try:
+            val = float(val)
+        except (ValueError, TypeError):
+            val = 0.0  # Default for non-convertible values
+        feature_values.append(val)
     
-    # Extract feature values as numpy array
-    X = df.loc[df_index, features].to_numpy().reshape(1, -1)
+    # Convert to DataFrame to preserve feature names
+    X = pd.DataFrame([feature_values], columns=features)
     
-    # Double-check shape and NaN values in final input
-    if np.isnan(X).any():
-        print(f"Warning: NaN values still present in model input")
-        # Replace any remaining NaNs with 0
-        X = np.nan_to_num(X, nan=0)
-    
-    # Make prediction and calculate revenue
+    # Make prediction and calculate revenue 
     resulting_rn = model.predict(X)[0]
     resulting_rev = round(resulting_rn * price, 2)
     
@@ -173,37 +156,53 @@ def get_optimal_prices(df_demand, as_of_date, model, features):
     """
     # Get indices of rows to process
     indices = list(df_demand.index)
-    
     # Define price adjustment percentages (excluding 0%)
     price_adjustments = np.delete(
         np.arange(-0.25, 0.30, 0.05).round(2), 5
     )  # delete zero (already have it)
     
     optimal_prices = []
-    
+    print("df_demand",df_demand.head())
     # Process each date
     for i in indices:
         try:
             # Ensure all features are available for this row
-            if df_demand.loc[i, features].isna().any():
-                print(f"Filling NaN values in features for index {i}")
+            feature_data = df_demand.loc[i, features].copy()
+            print("feature_data",feature_data)
+            # First ensure all feature values are numeric for this row
+            for col in features:
+                if col in df_demand.columns:
+                    # Try to convert to numeric, coerce errors to NaN
+                    if not pd.api.types.is_numeric_dtype(df_demand[col].dtype):
+                        df_demand.loc[i, col] = pd.to_numeric(df_demand.loc[i, col], errors='coerce')
+            
+            # Now check for and fill NaN values
+            has_nan_features = pd.isna(feature_data).any()
+            if has_nan_features:
+                # print(f"Filling NaN values in features for index {i}")
                 for col in features:
                     if pd.isna(df_demand.loc[i, col]):
-                        if df_demand[col].dtype in ['float64', 'int64']:
+                        if pd.api.types.is_numeric_dtype(df_demand[col].dtype):
                             df_demand.loc[i, col] = df_demand[col].mean() if not pd.isna(df_demand[col].mean()) else 0
                         else:
                             df_demand.loc[i, col] = 0
             
             # Calculate baseline metrics at original price
             original_rate = round(df_demand.loc[i, "SellingPrice"], 2)
-            
-            # Prepare features for prediction
-            date_X = df_demand.loc[i, features].to_numpy().reshape(1, -1)
-            
-            # Check for NaN values in model input
-            if np.isnan(date_X).any():
-                print(f"Warning: NaN values in model input at index {i}")
-                date_X = np.nan_to_num(date_X, nan=0)
+            # print("original rate",original_rate)
+            # Prepare features for prediction and ensure all are numeric
+            feature_values = []
+            for col in features:
+                val = df_demand.loc[i, col]
+                # Convert to float - handles any remaining non-numeric values
+                try:
+                    val = float(val)
+                except (ValueError, TypeError):
+                    val = 0.0  # Default for non-convertible values
+                feature_values.append(val)
+                
+            # Convert to DataFrame to preserve feature names
+            date_X = pd.DataFrame([feature_values], columns=features)
             
             # Predict demand at original price
             original_rn = model.predict(date_X)[0]
@@ -257,7 +256,8 @@ def get_optimal_prices(df_demand, as_of_date, model, features):
     actual_count = len(optimal_prices)
     if actual_count != expected_count:
         print(f"Warning: Expected {expected_count} price points, but got {actual_count}")
-    
+    print("df demand",df_demand)
+    print("optiaml price",optimal_prices)
     return df_demand, optimal_prices
 
 def add_rates(df_demand, optimal_prices):
@@ -331,7 +331,6 @@ def debug_datetime_column(df, column_name="StayDate"):
     --------
     None - prints diagnostic information
     """
-    import pandas as pd
     
     if column_name not in df.columns:
         print(f"ERROR: Column '{column_name}' not found in DataFrame")
@@ -495,10 +494,28 @@ def model_demand(hotel_num, df_sim, as_of_date):
     else:
         capacity = 226
 
+    # First, ensure all data types are compatible
+    print("Converting features to appropriate types...")
+    for col in rf_cols:
+        if col in df_sim.columns:
+            # Convert boolean columns to int (0/1)
+            if df_sim[col].dtype == bool:
+                df_sim[col] = df_sim[col].astype(int)
+            # Try to convert other columns to float
+            elif df_sim[col].dtype not in ['float64', 'int64']:
+                df_sim[col] = pd.to_numeric(df_sim[col], errors='coerce')
+            # Fill any NaN values with 0
+            if df_sim[col].isna().any():
+                print(f"Column {col} has {df_sim[col].isna().sum()} NaN values")
+                df_sim[col] = df_sim[col].fillna(0)
+    
+    # Also ensure the target variable is properly formatted
+    if "ACTUAL_TRN_RoomsPickup" in df_sim.columns and df_sim["ACTUAL_TRN_RoomsPickup"].dtype not in ['float64', 'int64']:
+        df_sim["ACTUAL_TRN_RoomsPickup"] = pd.to_numeric(df_sim["ACTUAL_TRN_RoomsPickup"], errors='coerce').fillna(0)
+
     print("Training Random Forest model to predict remaining transient demand...")
     X_train, y_train, X_test, y_test = splits(df_sim, rf_cols)
-    print("Xtest",X_test)
-    print("ytest",y_test)
+    # print("Rf cols",rf_cols)
     print("Splitting data into training and test sets...")
     df_demand, model, preds = train_model(
         df_sim, as_of_date, hotel_num, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test, features=rf_cols
@@ -507,12 +524,12 @@ def model_demand(hotel_num, df_sim, as_of_date):
     print("Model ready.\n")
     summarize_model_results(model, y_test, preds)
 
-    print("Calculating optimal selling prices...\n")
-    df_demand, optimal_prices = get_optimal_prices(
-        df_demand, as_of_date, model, rf_cols
-    )
-    df_demand = add_rates(df_demand, optimal_prices)
-    df_demand = add_display_columns(df_demand, capacity)
+    # print("Calculating optimal selling prices...\n")
+    # df_demand, optimal_prices = get_optimal_prices(
+    #     df_demand, as_of_date, model, rf_cols
+    # )
+    # df_demand = add_rates(df_demand, optimal_prices)
+    # df_demand = add_display_columns(df_demand, capacity)
 
     print("Simulation ready.\n")
 

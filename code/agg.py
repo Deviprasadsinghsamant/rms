@@ -50,7 +50,7 @@ def combine_files(hotel_num, sim_aod, prelim_csv_out=None):
         print(f"'{prelim_csv_out}' file saved.")
 
     # Print column names to help with debugging
-    print("Columns in df_sim after loading:", df_sim.columns.tolist())
+    # print("Columns in df_sim after loading:", df_sim.columns.tolist())
     
     # Check if required columns exist
     required_columns = ['Date', 'STLY_Date', 'DaysUntilArrival']
@@ -70,7 +70,7 @@ def extract_features(df_sim, df_dbd, capacity):
 
     def add_aod(df_sim):
         """Adds "AsOfDate" and "STLY_AsOfDate" columns."""
-        print("Columns in df_sim at start of add_aod:", df_sim.columns.tolist())
+        # print("Columns in df_sim at start of add_aod:", df_sim.columns.tolist())
         
         # Check if required columns exist
         if 'DaysUntilArrival' not in df_sim.columns:
@@ -166,10 +166,17 @@ def extract_features(df_sim, df_dbd, capacity):
         def apply_ly_cols(row):
             try:
                 stly_date = row["STLY_StayDate"]
-                if pd.isna(stly_date) or pd.to_datetime(stly_date) < dt.date(2015, 8, 1):
-                    return tuple(np.zeros(len(ly_cols_agg)))  # ignore lya if no data
+                if pd.isna(stly_date):
+                    return tuple(np.zeros(len(ly_cols_agg)))
                     
-                stly_date_str = dt.datetime.strftime(stly_date, format=DATE_FMT)
+                # Convert to pandas Timestamp for comparison
+                stly_date = pd.Timestamp(stly_date)
+                min_date = pd.Timestamp('2015-08-01')
+                
+                if stly_date < min_date:
+                    return tuple(np.zeros(len(ly_cols_agg)))
+                    
+                stly_date_str = stly_date.strftime(DATE_FMT)
                 
                 # Handle case where stly_date_str is not in df_dbd index
                 if stly_date_str not in df_dbd.index:
@@ -493,7 +500,7 @@ def prep_demand_features(hotel_num, prelim_csv_out=None, results_csv_out="result
 
     # combine all otb files into one DataFrame
     # and add in features (LYA, actuals, etc.)
-    print()
+
     df_sim = combine_files(hotel_num, SIM_AOD, prelim_csv_out=prelim_csv_out)
     
     # Check if df_sim is empty
@@ -501,7 +508,7 @@ def prep_demand_features(hotel_num, prelim_csv_out=None, results_csv_out="result
         print("ERROR: No data found in combined files.")
         return pd.DataFrame()
         
-    print(f"df_sim shape before feature extraction: {df_sim.shape}")
+    # print(f"df_sim shape before feature extraction: {df_sim.shape}")
     
     df_sim = extract_features(df_sim, df_dbd, capacity)
     df_sim = merge_stly(df_sim)
@@ -521,11 +528,11 @@ def prep_demand_features(hotel_num, prelim_csv_out=None, results_csv_out="result
     if results_csv_out is not None:
         df_sim.to_csv(results_csv_out)
         print(f"'{results_csv_out}' file saved.")
-        
+    print(df_sim)
     return df_sim.dropna()
 
 if(__name__ == "__main__"):
-    # example usage
+    # example usage      
     hotel_num = 2
     df_sim = prep_demand_features(
         hotel_num
