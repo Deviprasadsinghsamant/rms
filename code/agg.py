@@ -17,12 +17,35 @@ from agg_utils import stly_cols_agg, ly_cols_agg, trash_can, pace_tuples, gap_tu
 
 DATE_FMT = "%Y-%m-%d"
 SIM_AOD = dt.date(2017, 8, 1)  # simulation as-of date
-FOLDER = r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\sims2\\"
+# FOLDER = r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\sims2\\"
 H1_CAPACITY = 187
 H2_CAPACITY = 226
-H1_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_dbd.pick")
-H2_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_dbd.pick")  # Fixed path for H2
+# H1_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_dbd.pick")
+# H2_DBD = p
 
+
+
+# --- Dynamic Path Resolution ---
+# Get the directory of the current script
+script_dir = os.path.dirname(__file__)
+
+# Construct the path to the 'sims2' output folder
+# This assumes 'sims2' is a sibling of the 'code' directory,
+# or more precisely, it's relative to where the script is run from.
+# If 'sims2' is inside 'code', adjust to: os.path.join(script_dir, "sims2")
+# Based on your previous context, it might be better to assume it's like '../sims2' from 'code'.
+# Let's assume 'sims2' is at: ~/Desktop/rms/rms/sims2/
+# And your script is at: ~/Desktop/rms/rms/code/your_script.py
+# So, from 'code' you need to go up one level and then down into 'sims2'.
+base_dir = os.path.dirname(script_dir) # Go up one level from 'code' (to 'rms' folder)
+FOLDER = os.path.join(base_dir, "sims2", "") # Join with 'sims2' and ensure trailing slash
+
+# Construct the path to the 'pickle' directory
+pickle_dir = os.path.join(script_dir, "pickle") # Assuming 'pickle' is inside 'code'
+
+# --- Load Data ---
+H1_DBD = pd.read_pickle(os.path.join(pickle_dir, "h1_dbd.pick"))
+H2_DBD = pd.read_pickle(os.path.join(pickle_dir, "h2_dbd.pick"))
 
 def combine_files(hotel_num, sim_aod, prelim_csv_out=None):
     """Combines all required files in FOLDER into one DataFrame."""

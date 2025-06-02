@@ -55,10 +55,22 @@ START = datetime.date(2015, 8, 1)
 STOP = datetime.date(2017, 8, 1)
 DATE_FMT = "%Y-%m-%d"
 
-H1_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_res.pick")
-H2_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_res.pick")
-H1_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_dbd.pick")
-H2_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_dbd.pick")
+# H1_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_res.pick")
+# H2_RES = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_res.pick")
+# H1_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h1_dbd.pick")
+# H2_DBD = pd.read_pickle(r"C:\Users\Quotus\Desktop\rms002\rms_init\hotel-revman-system\code\pickle\h2_dbd.pick")
+
+# Get the directory of the current script
+script_dir = os.path.dirname(__file__)
+
+# Construct the relative path to the pickle files
+pickle_dir = os.path.join(script_dir, "pickle")
+
+H1_RES = pd.read_pickle(os.path.join(pickle_dir, "h1_res.pick"))
+H2_RES = pd.read_pickle(os.path.join(pickle_dir, "h2_res.pick"))
+H1_DBD = pd.read_pickle(os.path.join(pickle_dir, "h1_dbd.pick"))
+H2_DBD = pd.read_pickle(os.path.join(pickle_dir, "h2_dbd.pick"))
+
 
 
 def save_sim_records(df_dbd, df_res, hotel_num, skip_existing=False, pull_extended=False):
